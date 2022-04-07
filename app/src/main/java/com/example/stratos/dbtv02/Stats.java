@@ -1,137 +1,224 @@
 package com.example.stratos.dbtv02;
 
-import android.content.pm.ActivityInfo;
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
-import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
+import androidx.core.content.ContextCompat;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.WindowManager;
+import android.widget.SeekBar;
+import android.widget.SeekBar.OnSeekBarChangeListener;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.data.Entry;
-import com.github.mikephil.charting.data.LineData;
-import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.XAxis.XAxisPosition;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.interfaces.datasets.IBarDataSet;
+import com.github.mikephil.charting.interfaces.datasets.IDataSet;
+import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.util.ArrayList;
-import java.util.List;
 
-public class Stats extends AppCompatActivity {
+public class Stats extends DemoBase implements OnSeekBarChangeListener {
 
-    Spinner spinner;
-    DatabaseHelper myDb;
+    private BarChart chart;
+    private SeekBar seekBarX, seekBarY;
+    private TextView tvX, tvY;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_stats);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
-        myDb = new DatabaseHelper(this);
+        setTitle("AnotherBarActivity");
 
-        spinner = (Spinner) findViewById(R.id.spinner2);
-        List<String> list = new ArrayList<>();
-        list.add("Day");
-        list.add("Week");
-        list.add("Month");
-        ArrayAdapter<String> dataAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, list);
-        dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(dataAdapter);
+        tvX = findViewById(R.id.tvXMax);
+        tvY = findViewById(R.id.tvYMax);
 
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position == 0){
-                    ShowGraph(1);
-                }
-                else if (position == 1) {
-                    ShowGraph(7);
-                }
-                else {
-                    ShowGraph(30);
-                }
-            }
+        seekBarX = findViewById(R.id.seekBar1);
+        seekBarX.setOnSeekBarChangeListener(this);
 
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        seekBarY = findViewById(R.id.seekBar2);
+        seekBarY.setOnSeekBarChangeListener(this);
+
+        chart = findViewById(R.id.chart1);
+
+        chart.getDescription().setEnabled(false);
+
+        // if more than 60 entries are displayed in the chart, no values will be
+        // drawn
+        chart.setMaxVisibleValueCount(60);
+
+        // scaling can now only be done on x- and y-axis separately
+        chart.setPinchZoom(false);
+
+        chart.setDrawBarShadow(false);
+        chart.setDrawGridBackground(false);
+
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setPosition(XAxisPosition.BOTTOM);
+        xAxis.setDrawGridLines(false);
+
+        chart.getAxisLeft().setDrawGridLines(false);
+
+        // setting data
+        seekBarX.setProgress(10);
+        seekBarY.setProgress(100);
+
+        // add a nice and smooth animation
+        chart.animateY(1500);
+
+        chart.getLegend().setEnabled(false);
     }
 
-    public void ShowGraph (int days){
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
 
-        int limit=0;
-        int i=1;
+        tvX.setText(String.valueOf(seekBarX.getProgress()));
+        tvY.setText(String.valueOf(seekBarY.getProgress()));
 
-        LineChart lineChart = (LineChart) findViewById(R.id.chart);
-        ArrayList<String> check = getCol(1);
-        if (check == null) return;
-
-        String[] values = getCol(2).toArray(new String[0]);
-        String[] times = getCol(1).toArray(new String[0]);
-
-        int cdate, bcdate;
-
-        while (i<=days)
-        {
-            cdate=Integer.parseInt(times[times.length-limit-1].substring(0,2));
-            bcdate = Integer.parseInt(times[times.length-limit-2].substring(0,2));
-            if(cdate!=bcdate){
-                i++;
-            }
-            limit++;
-        }
-
-        ArrayList<Entry> entries = new ArrayList<>();
-        i=0;
-        while(i<limit) {
-            entries.add(new Entry(Integer.parseInt(values[values.length - limit + i]), i));
-            i++;
-        }
-
-        LineDataSet dataset = new LineDataSet(entries, "mg/dl");
-
-        ArrayList<String> labels = new ArrayList<>();
-
-        labels.add(times[times.length - limit].substring(0,5));
-        i=1;
-        while(i<limit) {
-            if(times[times.length - limit + i].substring(0, 5).equals(times[times.length - limit + i-1].substring(0, 5))){
-                labels.add(" ");
-            }
-            else{
-                labels.add(times[times.length - limit + i].substring(0, 5));
-            }
-            i++;
-        }
-
-        LineData data = new LineData(labels, dataset);
-        dataset.setDrawFilled(true);
-
-        lineChart.setData(data);
-        lineChart.animateY(3000);
-        lineChart.animateX(3000);
-        lineChart.setGridBackgroundColor(Color.TRANSPARENT);
-    }
-
-
-    public ArrayList<String> getCol(int col){
-        ArrayList<String> values = new ArrayList<>();
-
-        Cursor res = myDb.getAllData();
+        ArrayList<BarEntry> values = new ArrayList<>();
+        DatabaseHelper myDb = new DatabaseHelper(this);
+        Cursor res = myDb.get24hData();
         if(res.getCount() == 0) {
             // show message
-            //Toast.makeText(Stats.this, "No measurements", Toast.LENGTH_SHORT).show();
-
-            return null;
+            Toast.makeText(Stats.this, "No Measurements", Toast.LENGTH_SHORT).show();
+            finish();
         }
 
-        while (res.moveToNext()) {
-            values.add(res.getString(col));
+        res.moveToLast();
+        int i = 0;
+        while (res.moveToPrevious()) {
+            values.add(new BarEntry(i, Integer.parseInt(res.getString(2))));
+            i++;
         }
 
-        return values;
+//        for (int i = 0; i < res.getCount(); i++) {
+//            values.add(new BarEntry(i, val));
+//        }
+
+        BarDataSet set1;
+
+        if (chart.getData() != null &&
+                chart.getData().getDataSetCount() > 0) {
+            set1 = (BarDataSet) chart.getData().getDataSetByIndex(0);
+            set1.setValues(values);
+            chart.getData().notifyDataChanged();
+            chart.notifyDataSetChanged();
+        } else {
+            set1 = new BarDataSet(values, "Data Set");
+            set1.setColors(ColorTemplate.VORDIPLOM_COLORS);
+            set1.setValueTextSize(10f);
+            set1.setDrawValues(true);
+
+            ArrayList<IBarDataSet> dataSets = new ArrayList<>();
+            dataSets.add(set1);
+
+            BarData data = new BarData(dataSets);
+            chart.setData(data);
+            chart.setFitBars(true);
+        }
+
+        chart.invalidate();
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.bar, menu);
+        menu.removeItem(R.id.actionToggleIcons);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+            case R.id.viewGithub: {
+                Intent i = new Intent(Intent.ACTION_VIEW);
+                i.setData(Uri.parse("https://github.com/PhilJay/MPAndroidChart/blob/master/MPChartExample/src/com/xxmassdeveloper/mpchartexample/AnotherBarActivity.java"));
+                startActivity(i);
+                break;
+            }
+            case R.id.actionToggleValues: {
+
+                for (IDataSet set : chart.getData().getDataSets())
+                    set.setDrawValues(!set.isDrawValuesEnabled());
+
+                chart.invalidate();
+                break;
+            }
+            /*
+            case R.id.actionToggleIcons: { break; }
+             */
+            case R.id.actionToggleHighlight: {
+
+                if(chart.getData() != null) {
+                    chart.getData().setHighlightEnabled(!chart.getData().isHighlightEnabled());
+                    chart.invalidate();
+                }
+                break;
+            }
+            case R.id.actionTogglePinch: {
+                chart.setPinchZoom(!chart.isPinchZoomEnabled());
+
+                chart.invalidate();
+                break;
+            }
+            case R.id.actionToggleAutoScaleMinMax: {
+                chart.setAutoScaleMinMaxEnabled(!chart.isAutoScaleMinMaxEnabled());
+                chart.notifyDataSetChanged();
+                break;
+            }
+            case R.id.actionToggleBarBorders: {
+                for (IBarDataSet set : chart.getData().getDataSets())
+                    ((BarDataSet)set).setBarBorderWidth(set.getBarBorderWidth() == 1.f ? 0.f : 1.f);
+
+                chart.invalidate();
+                break;
+            }
+            case R.id.animateX: {
+                chart.animateX(2000);
+                break;
+            }
+            case R.id.animateY: {
+                chart.animateY(2000);
+                break;
+            }
+            case R.id.animateXY: {
+
+                chart.animateXY(2000, 2000);
+                break;
+            }
+            case R.id.actionSave: {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                    saveToGallery();
+                } else {
+                    requestStoragePermission(chart);
+                }
+                break;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected void saveToGallery() {
+        saveToGallery(chart, "AnotherBarActivity");
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {}
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {}
 }

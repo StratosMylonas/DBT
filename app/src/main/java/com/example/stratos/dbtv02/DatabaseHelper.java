@@ -10,6 +10,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "Measurements.db";
@@ -19,7 +20,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String TABLE_NAME4 = "Doctors";
 
     public static final String COL_1 = "ID";
-    public static final String COL_2 = "DATE";
+    public static final String COL_2 = "DATEOFMEASURE";
     public static final String COL_3 = "VALUE";
     public static final String COL_4 = "TYPE";
     public static final String COL_5 = "DAY";
@@ -44,12 +45,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 
     public DatabaseHelper(Context context) {
-        super(context, DATABASE_NAME, null, 11);
+        super(context, DATABASE_NAME, null, 14);
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("create table " + TABLE_NAME + " (ID INTEGER PRIMARY KEY AUTOINCREMENT,DATE DATETIME,VALUE INT, TYPE TEXT, DAY TEXT)");
+        db.execSQL("create table " + TABLE_NAME + " (ID INTEGER PRIMARY KEY AUTOINCREMENT,DATEOFMEASURE DATETIME,VALUE INT, TYPE TEXT, DAY TEXT)");
         db.execSQL("create table " + TABLE_NAME2 + " (ID INTEGER PRIMARY KEY AUTOINCREMENT,TIME TEXT,ON_OFF INT)");
         db.execSQL("create table " + TABLE_NAME3 + " (ID INTEGER PRIMARY KEY AUTOINCREMENT,NAME TEXT, SURNAME TEXT, ADDRESS TEXT, HOMETOWN TEXT, TK TEXT, EMAIL TEXT, PHONE TEXT, CELLPHONE TEXT)");
         db.execSQL("create table " + TABLE_NAME4 + " (ID INTEGER PRIMARY KEY AUTOINCREMENT,NAME TEXT, SURNAME TEXT,ADDRESS TEXT, EMAIL TEXT, PHONE TEXT)");
@@ -67,7 +68,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public boolean insertData(int value, String type) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         Date date = new Date();
         contentValues.put(COL_2, dateFormat.format(date));
         contentValues.put(COL_3, value);
@@ -164,6 +165,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public Cursor getAllTimes() {
         SQLiteDatabase db = this.getWritableDatabase();
         return db.rawQuery("select * from " + TABLE_NAME2, null);
+    }
+
+    public Cursor get24hData(){
+        SQLiteDatabase db = this.getWritableDatabase();
+        return db.rawQuery("select * from " + TABLE_NAME + " where " + COL_2 + " >= DATE('now', '-1 days')", null);
     }
 
     public void deleteData(String id) {

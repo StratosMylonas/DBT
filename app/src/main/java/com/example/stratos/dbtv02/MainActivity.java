@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
             calendarButton.startAnimation(animation);
 
             new Handler().postDelayed(() -> {
-                Intent i1 = new Intent(MainActivity.this, Calendar.class);
+                Intent i1 = new Intent(MainActivity.this, MCalendarActivity.class);
                 startActivity(i1);
             }, 400);
         });

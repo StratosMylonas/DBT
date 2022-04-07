@@ -10,25 +10,22 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
 
 import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
 
-public class NewMeasurement extends Activity implements Runnable {
-    protected static final String TAG = "TAG";
-    private static final int REQUEST_CONNECT_DEVICE = 1;
-    private static final int REQUEST_ENABLE_BT = 2;
-    Button mScan, mTune;
-    BluetoothAdapter mBluetoothAdapter;
-    private final UUID applicationUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private ProgressDialog mBluetoothConnectProgressDialog;
-    private BluetoothSocket mBluetoothSocket;
-    BluetoothDevice mBluetoothDevice;
+public class NewMeasurement extends Activity{
+    Button saveButton;
+    EditText txtNewMeasurement;
 
     @Override
     public void onCreate(Bundle mSavedInstanceState) {
@@ -38,107 +35,32 @@ public class NewMeasurement extends Activity implements Runnable {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_new_measurement);
 
-        mScan = findViewById(R.id.connectButton);
-        mTune = findViewById(R.id.saveButton);
+        txtNewMeasurement = findViewById(R.id.txtNewMeasurement);
+        saveButton = findViewById(R.id.saveButton);
+        saveButton.setOnClickListener(view -> {
+            String editText = txtNewMeasurement.getText().toString();
+            if (editText.isEmpty()){
+                Toast.makeText(this, "Please enter a new measurement", Toast.LENGTH_SHORT).show();
+            }
+            else if (editText.matches("[0-9]+") && editText.length() >= 2){
+                AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(NewMeasurement.this, R.style.MyAlertDialogStyle);
+                alertDialogBuilder.setMessage("Confirm Measurement?");
+                alertDialogBuilder.setPositiveButton("Yes", (dialogInterface, i) -> {
+                    DatabaseHelper myDb;
+                    myDb = new DatabaseHelper(NewMeasurement.this);
+                    boolean ret = myDb.insertData(Integer.parseInt(editText), " ");
+                    if (!ret){
+                        Toast.makeText(this, "Something went wrong", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                alertDialogBuilder.setNegativeButton("No", (dialogInterface, i) -> dialogInterface.cancel());
 
-        mScan.setOnClickListener(mView -> {
-            mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-            if (mBluetoothAdapter == null) {
-                Toast.makeText(NewMeasurement.this, "Bluetooth is not supported in your device", Toast.LENGTH_SHORT).show();
-            } else {
-                if (!mBluetoothAdapter.isEnabled()) {
-                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                    startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-                } else {
-                    ListPairedDevices();
-                    Intent connectIntent = new Intent(NewMeasurement.this, DeviceListActivity.class);
-                    startActivityForResult(connectIntent, REQUEST_CONNECT_DEVICE);
-                }
+                AlertDialog alertDialog = alertDialogBuilder.create();
+                alertDialog.show();
+            }
+            else{
+                Toast.makeText(this, "Invalid value entered", Toast.LENGTH_SHORT).show();
             }
         });
-
-        mTune.setOnClickListener(mView -> {
-            mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-            if (mBluetoothAdapter == null) {
-                Toast.makeText(NewMeasurement.this, "Message2", Toast.LENGTH_SHORT).show();
-            } else {
-                if (!mBluetoothAdapter.isEnabled()) {
-                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                    startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-                } else {
-                    ListPairedDevices();
-                    Intent connectIntent = new Intent(NewMeasurement.this, DeviceListActivity.class);
-                    startActivityForResult(connectIntent, REQUEST_CONNECT_DEVICE);
-                }
-            }
-        });
-    }// onCreate
-
-    public void onActivityResult(int mRequestCode, int mResultCode, Intent mDataIntent) {
-        super.onActivityResult(mRequestCode, mResultCode, mDataIntent);
-
-        switch (mRequestCode) {
-            case REQUEST_CONNECT_DEVICE:
-                if (mResultCode == Activity.RESULT_OK) {
-                    Bundle mExtra = mDataIntent.getExtras();
-                    String mDeviceAddress = mExtra.getString("DeviceAddress");
-                    Log.v(TAG, "Coming incoming address " + mDeviceAddress);
-                    mBluetoothDevice = mBluetoothAdapter.getRemoteDevice(mDeviceAddress);
-                    mBluetoothConnectProgressDialog = ProgressDialog.show(this, "Connecting...", mBluetoothDevice.getName() + " : " + mBluetoothDevice.getAddress(), true, false);
-                    Thread mBluetoothConnectThread = new Thread(this);
-                    mBluetoothConnectThread.start();
-                    //pairToDevice(mBluetoothDevice); This method is replaced by progress dialog with thread
-                }
-                break;
-
-            case REQUEST_ENABLE_BT:
-                if (mResultCode == Activity.RESULT_OK) {
-                    ListPairedDevices();
-                    Intent connectIntent = new Intent(NewMeasurement.this, DeviceListActivity.class);
-                    startActivityForResult(connectIntent, REQUEST_CONNECT_DEVICE);
-                } else {
-                    Toast.makeText(NewMeasurement.this, "You need bluetooth connection to receive data. Try again", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
-                break;
-        }
     }
-
-    private void ListPairedDevices() {
-        Set<BluetoothDevice> mPairedDevices = mBluetoothAdapter.getBondedDevices();
-        if (mPairedDevices.size() > 0) {
-            for (BluetoothDevice mDevice : mPairedDevices) {
-                Log.v(TAG, "PairedDevices: " + mDevice.getName() + " " + mDevice.getAddress());
-            }
-        }
-    }
-
-    public void run() {
-        try {
-            mBluetoothSocket = mBluetoothDevice.createRfcommSocketToServiceRecord(applicationUUID);
-            mBluetoothAdapter.cancelDiscovery();
-            mBluetoothSocket.connect();
-            mHandler.sendEmptyMessage(0);
-        } catch (IOException eConnectException) {
-            Log.d(TAG, "CouldNotConnectToSocket", eConnectException);
-            closeSocket(mBluetoothSocket);
-        }
-    }
-
-    private void closeSocket(BluetoothSocket nOpenSocket) {
-        try {
-            nOpenSocket.close();
-            Log.d(TAG, "SocketClosed");
-        } catch (IOException ex) {
-            Log.d(TAG, "CouldNotCloseSocket");
-        }
-    }
-
-    private final Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            mBluetoothConnectProgressDialog.dismiss();
-            Toast.makeText(NewMeasurement.this, "Device Connected", Toast.LENGTH_SHORT).show();
-        }
-    };
 }
